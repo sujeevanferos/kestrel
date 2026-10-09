@@ -8,7 +8,8 @@ enum CanvasTool {
   pen,
   highlighter,
   eraser,
-  lasso,
+  rectangleSelect,
+  lassoSelect,
 }
 
 enum PaperStyle {
@@ -36,9 +37,19 @@ class CanvasController extends ChangeNotifier {
   double get strokeWidth => _strokeWidth;
   PaperStyle get paperStyle => _paperStyle;
 
-  // Selected item ID
-  String? _selectedItemId;
-  String? get selectedItemId => _selectedItemId;
+  // Selected item IDs (multi-selection support)
+  final Set<String> _selectedItemIds = {};
+  Set<String> get selectedItemIds => Set.unmodifiable(_selectedItemIds);
+  bool get hasActiveSelection => _selectedItemIds.isNotEmpty;
+  String? get selectedItemId => _selectedItemIds.isNotEmpty ? _selectedItemIds.first : null;
+
+  // Selection interaction state
+  Offset? _selectionStart;
+  Rect? _selectionMarquee;
+  Rect? get selectionMarquee => _selectionMarquee;
+
+  final List<Offset> _lassoPoints = [];
+  List<Offset> get activeLassoPoints => List.unmodifiable(_lassoPoints);
 
   // Viewport transformation
   Offset _panOffset = Offset.zero;
@@ -64,6 +75,9 @@ class CanvasController extends ChangeNotifier {
   void setTool(CanvasTool tool) {
     if (_currentTool != tool) {
       _currentTool = tool;
+      _activePoints.clear();
+      _lassoPoints.clear();
+      _selectionMarquee = null;
       notifyListeners();
     }
   }
@@ -104,7 +118,47 @@ class CanvasController extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // INTERACTIVE CARD ITEMS MANAGEMENT (PHASE 6)
+  // MULTI-ELEMENT SELECTION ACTIONS
+  // ---------------------------------------------------------------------------
+
+  List<CanvasItem> getSelectedItems() {
+    if (_selectedItemIds.isEmpty) {
+      return List.unmodifiable(_items); // Fallback to all items if none explicitly selected
+    }
+    return _items.where((it) => _selectedItemIds.contains(it.id)).toList();
+  }
+
+  void clearSelection() {
+    if (_selectedItemIds.isNotEmpty) {
+      _selectedItemIds.clear();
+      for (final it in _items) {
+        it.isSelected = false;
+      }
+      notifyListeners();
+    }
+  }
+
+  void deleteSelectedItems() {
+    if (_selectedItemIds.isEmpty) return;
+    _recordSnapshot();
+    _items.removeWhere((it) => _selectedItemIds.contains(it.id));
+    _selectedItemIds.clear();
+    notifyListeners();
+  }
+
+  void selectItem(String? id) {
+    _selectedItemIds.clear();
+    if (id != null) {
+      _selectedItemIds.add(id);
+    }
+    for (final it in _items) {
+      it.isSelected = _selectedItemIds.contains(it.id);
+    }
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // INTERACTIVE CARD ITEMS MANAGEMENT
   // ---------------------------------------------------------------------------
 
   void addStickyNote({Offset? position, Color? color, String? text}) {
@@ -118,8 +172,7 @@ class CanvasController extends ChangeNotifier {
       noteColor: color ?? const Color(0xFFFEF3C7),
     );
     _items.add(note);
-    _selectedItemId = note.id;
-    notifyListeners();
+    selectItem(note.id);
   }
 
   void addTextBox({Offset? position, String? text}) {
@@ -132,8 +185,7 @@ class CanvasController extends ChangeNotifier {
       text: text ?? 'Double tap to edit heading or note',
     );
     _items.add(tb);
-    _selectedItemId = tb.id;
-    notifyListeners();
+    selectItem(tb.id);
   }
 
   void addTable({Offset? position, int rows = 3, int cols = 3}) {
@@ -152,8 +204,7 @@ class CanvasController extends ChangeNotifier {
       },
     );
     _items.add(table);
-    _selectedItemId = table.id;
-    notifyListeners();
+    selectItem(table.id);
   }
 
   void addVideoPlayer({required String videoPath, String? title, Offset? position}) {
@@ -167,8 +218,7 @@ class CanvasController extends ChangeNotifier {
       title: title ?? 'Lesson Presentation',
     );
     _items.add(vp);
-    _selectedItemId = vp.id;
-    notifyListeners();
+    selectItem(vp.id);
   }
 
   void updateItemPosition(String id, Offset newPos) {
@@ -247,22 +297,12 @@ class CanvasController extends ChangeNotifier {
   void deleteItem(String id) {
     _recordSnapshot();
     _items.removeWhere((item) => item.id == id);
-    if (_selectedItemId == id) _selectedItemId = null;
+    _selectedItemIds.remove(id);
     notifyListeners();
   }
 
-  void selectItem(String? id) {
-    if (_selectedItemId != id) {
-      _selectedItemId = id;
-      for (final it in _items) {
-        it.isSelected = (it.id == id);
-      }
-      notifyListeners();
-    }
-  }
-
   // ---------------------------------------------------------------------------
-  // POINTER STROKE EVENT LIFECYCLE
+  // POINTER EVENT LIFECYCLE (INKING & SELECTION TOOLS)
   // ---------------------------------------------------------------------------
 
   void onPointerDown(Offset scenePos, double pressure, double tilt) {
@@ -274,6 +314,29 @@ class CanvasController extends ChangeNotifier {
       return;
     }
 
+    if (_currentTool == CanvasTool.rectangleSelect) {
+      _selectionStart = scenePos;
+      _selectionMarquee = Rect.fromPoints(scenePos, scenePos);
+      _selectedItemIds.clear();
+      for (final it in _items) {
+        it.isSelected = false;
+      }
+      notifyListeners();
+      return;
+    }
+
+    if (_currentTool == CanvasTool.lassoSelect) {
+      _lassoPoints.clear();
+      _lassoPoints.add(scenePos);
+      _selectedItemIds.clear();
+      for (final it in _items) {
+        it.isSelected = false;
+      }
+      notifyListeners();
+      return;
+    }
+
+    // Default Inking (Pen / Highlighter)
     final pt = StrokePoint(
       x: scenePos.dx,
       y: scenePos.dy,
@@ -300,6 +363,21 @@ class CanvasController extends ChangeNotifier {
       return;
     }
 
+    if (_currentTool == CanvasTool.rectangleSelect) {
+      if (_selectionStart != null) {
+        _selectionMarquee = Rect.fromPoints(_selectionStart!, scenePos);
+        notifyListeners();
+      }
+      return;
+    }
+
+    if (_currentTool == CanvasTool.lassoSelect) {
+      _lassoPoints.add(scenePos);
+      notifyListeners();
+      return;
+    }
+
+    // Default Inking
     final pt = StrokePoint(
       x: scenePos.dx,
       y: scenePos.dy,
@@ -328,6 +406,45 @@ class CanvasController extends ChangeNotifier {
 
   void onPointerUp() {
     _holdTimer?.cancel();
+
+    if (_currentTool == CanvasTool.rectangleSelect) {
+      if (_selectionMarquee != null && _selectionMarquee!.width > 4 && _selectionMarquee!.height > 4) {
+        final marquee = _selectionMarquee!;
+        for (final item in _items) {
+          if (marquee.overlaps(item.boundingBox) || marquee.contains(item.boundingBox.center)) {
+            _selectedItemIds.add(item.id);
+            item.isSelected = true;
+          }
+        }
+      }
+      _selectionMarquee = null;
+      _selectionStart = null;
+      notifyListeners();
+      return;
+    }
+
+    if (_currentTool == CanvasTool.lassoSelect) {
+      if (_lassoPoints.length > 3) {
+        for (final item in _items) {
+          if (_isPointInPolygon(item.boundingBox.center, _lassoPoints)) {
+            _selectedItemIds.add(item.id);
+            item.isSelected = true;
+          } else if (item is InkStrokeItem) {
+            // Also test individual stroke points
+            for (final pt in item.points) {
+              if (_isPointInPolygon(Offset(pt.x, pt.y), _lassoPoints)) {
+                _selectedItemIds.add(item.id);
+                item.isSelected = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+      _lassoPoints.clear();
+      notifyListeners();
+      return;
+    }
 
     if (_activePoints.isEmpty) return;
 
@@ -361,6 +478,19 @@ class CanvasController extends ChangeNotifier {
     _holdAnchorPoint = null;
     _didSnap = false;
     notifyListeners();
+  }
+
+  bool _isPointInPolygon(Offset p, List<Offset> polygon) {
+    if (polygon.length < 3) return false;
+    var inside = false;
+    for (var i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      final xi = polygon[i].dx, yi = polygon[i].dy;
+      final xj = polygon[j].dx, yj = polygon[j].dy;
+      final intersect = ((yi > p.dy) != (yj > p.dy)) &&
+          (p.dx < (xj - xi) * (p.dy - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
   }
 
   void _checkHoldToSnap() {
@@ -486,6 +616,7 @@ class CanvasController extends ChangeNotifier {
     if (_items.isEmpty) return;
     _recordSnapshot();
     _items.clear();
+    _selectedItemIds.clear();
     notifyListeners();
   }
 
@@ -493,6 +624,7 @@ class CanvasController extends ChangeNotifier {
     _recordSnapshot();
     _items.clear();
     _items.addAll(newItems);
+    _selectedItemIds.clear();
     notifyListeners();
   }
 
@@ -503,6 +635,7 @@ class CanvasController extends ChangeNotifier {
   void importBoardJson(List<dynamic> jsonList) {
     _recordSnapshot();
     _items.clear();
+    _selectedItemIds.clear();
     for (final itemJson in jsonList) {
       if (itemJson is Map<String, dynamic>) {
         final it = deserializeCanvasItem(itemJson);

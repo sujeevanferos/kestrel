@@ -5,11 +5,15 @@ import '../../canvas/canvas_controller.dart';
 class FloatingToolbar extends StatelessWidget {
   final CanvasController controller;
   final VoidCallback onOpenMenu;
+  final VoidCallback? onGeneratePdf;
+  final VoidCallback? onGenerateVideo;
 
   const FloatingToolbar({
     super.key,
     required this.controller,
     required this.onOpenMenu,
+    this.onGeneratePdf,
+    this.onGenerateVideo,
   });
 
   static const List<Color> _palette = [
@@ -25,6 +29,9 @@ class FloatingToolbar extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
+        final isSelecting = controller.currentTool == CanvasTool.rectangleSelect ||
+            controller.currentTool == CanvasTool.lassoSelect;
+
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
@@ -74,6 +81,97 @@ class FloatingToolbar extends StatelessWidget {
                 tooltip: 'Eraser',
                 isSelected: controller.currentTool == CanvasTool.eraser,
                 onPressed: () => controller.setTool(CanvasTool.eraser),
+              ),
+
+              const _VerticalDivider(),
+
+              // Selection Tools (Rectangle Marquee & Freehand Lasso)
+              PopupMenuButton<CanvasTool>(
+                tooltip: 'Selection Tool (Rectangle / Lasso)',
+                icon: Icon(
+                  controller.currentTool == CanvasTool.lassoSelect
+                      ? LucideIcons.lasso
+                      : LucideIcons.boxSelect,
+                  size: 18,
+                  color: isSelecting ? const Color(0xFF3B82F6) : const Color(0xFF4A4E57),
+                ),
+                color: const Color(0xFFF7F4EE),
+                elevation: 6,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: Color(0xFFE2DCD0)),
+                ),
+                onSelected: (tool) => controller.setTool(tool),
+                itemBuilder: (context) => [
+                  PopupMenuItem<CanvasTool>(
+                    value: CanvasTool.rectangleSelect,
+                    child: Row(
+                      children: [
+                        Icon(LucideIcons.boxSelect,
+                            size: 16,
+                            color: controller.currentTool == CanvasTool.rectangleSelect
+                                ? const Color(0xFF3B82F6)
+                                : const Color(0xFF374151)),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Rectangle Selection',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: controller.currentTool == CanvasTool.rectangleSelect
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<CanvasTool>(
+                    value: CanvasTool.lassoSelect,
+                    child: Row(
+                      children: [
+                        Icon(LucideIcons.lasso,
+                            size: 16,
+                            color: controller.currentTool == CanvasTool.lassoSelect
+                                ? const Color(0xFF3B82F6)
+                                : const Color(0xFF374151)),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Freehand Lasso Selection',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: controller.currentTool == CanvasTool.lassoSelect
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              // Generate Academic PDF Tool
+              _ToolButton(
+                icon: LucideIcons.fileText,
+                tooltip: controller.hasActiveSelection
+                    ? 'Generate Academic PDF from Selection'
+                    : 'Generate Academic PDF from Whiteboard',
+                isSelected: false,
+                accentColor: const Color(0xFF2563EB),
+                onPressed: () => onGeneratePdf?.call(),
+              ),
+
+              // Generate Pedagogical Video Tool
+              _ToolButton(
+                icon: LucideIcons.video,
+                tooltip: controller.hasActiveSelection
+                    ? 'Generate Lesson Video from Selection'
+                    : 'Generate Lesson Video from Whiteboard',
+                isSelected: false,
+                accentColor: const Color(0xFFD97706),
+                onPressed: () => onGenerateVideo?.call(),
               ),
 
               const _VerticalDivider(),
@@ -267,6 +365,7 @@ class _ToolButton extends StatelessWidget {
   final String tooltip;
   final bool isSelected;
   final bool isEnabled;
+  final Color? accentColor;
   final VoidCallback onPressed;
 
   const _ToolButton({
@@ -274,6 +373,7 @@ class _ToolButton extends StatelessWidget {
     required this.tooltip,
     required this.isSelected,
     this.isEnabled = true,
+    this.accentColor,
     required this.onPressed,
   });
 
@@ -282,7 +382,7 @@ class _ToolButton extends StatelessWidget {
     final activeColor = isSelected ? const Color(0xFF2D3139) : Colors.transparent;
     final iconColor = isSelected
         ? Colors.white
-        : (isEnabled ? const Color(0xFF4A4E57) : const Color(0xFFB5AFA4));
+        : (accentColor ?? (isEnabled ? const Color(0xFF4A4E57) : const Color(0xFFB5AFA4)));
 
     return Tooltip(
       message: tooltip,

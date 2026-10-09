@@ -7,26 +7,24 @@ import '../settings/settings_dialog.dart';
 class AppDrawer extends StatelessWidget {
   final CanvasController controller;
   final VoidCallback onOpenNotebooks;
+  final VoidCallback onOpenDocuments;
+  final VoidCallback onOpenKnowledgeGraph;
   final VoidCallback onOpenSocraticTutor;
   final VoidCallback onOpenMathSolver;
   final VoidCallback onOpenGraphStudio;
-  final VoidCallback onOpenLatexEditor;
-  final VoidCallback onOpenKnowledgeGraph;
   final VoidCallback onOpenSimulations;
-  final VoidCallback onOpenVideoGenerator;
   final VoidCallback onOpenCollab;
 
   const AppDrawer({
     super.key,
     required this.controller,
     required this.onOpenNotebooks,
+    required this.onOpenDocuments,
+    required this.onOpenKnowledgeGraph,
     required this.onOpenSocraticTutor,
     required this.onOpenMathSolver,
     required this.onOpenGraphStudio,
-    required this.onOpenLatexEditor,
-    required this.onOpenKnowledgeGraph,
     required this.onOpenSimulations,
-    required this.onOpenVideoGenerator,
     required this.onOpenCollab,
   });
 
@@ -91,7 +89,7 @@ class AppDrawer extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 children: [
-                  _sectionHeader('CURRICULUM & NOTEBOOKS'),
+                  _sectionHeader('CURRICULUM & DOCUMENTS'),
                   _drawerItem(
                     icon: LucideIcons.bookOpen,
                     title: 'Subjects & Notebooks',
@@ -99,6 +97,15 @@ class AppDrawer extends StatelessWidget {
                     onTap: () {
                       Navigator.pop(context);
                       onOpenNotebooks();
+                    },
+                  ),
+                  _drawerItem(
+                    icon: LucideIcons.fileText,
+                    title: 'Documents Library',
+                    subtitle: 'Compiled academic PDFs & notes',
+                    onTap: () {
+                      Navigator.pop(context);
+                      onOpenDocuments();
                     },
                   ),
                   _drawerItem(
@@ -131,15 +138,6 @@ class AppDrawer extends StatelessWidget {
                       onOpenMathSolver();
                     },
                   ),
-                  _drawerItem(
-                    icon: LucideIcons.video,
-                    title: 'LaTeX Video Generator',
-                    subtitle: 'On-device pedagogical MP4 renderer',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onOpenVideoGenerator();
-                    },
-                  ),
 
                   const SizedBox(height: 10),
                   _sectionHeader('STUDIOS & TOOLS'),
@@ -150,15 +148,6 @@ class AppDrawer extends StatelessWidget {
                     onTap: () {
                       Navigator.pop(context);
                       onOpenGraphStudio();
-                    },
-                  ),
-                  _drawerItem(
-                    icon: LucideIcons.fileCode,
-                    title: 'LaTeX Document Typesetting',
-                    subtitle: 'Split-view live article editor',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onOpenLatexEditor();
                     },
                   ),
                   _drawerItem(
