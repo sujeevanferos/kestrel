@@ -36,6 +36,10 @@ class CanvasController extends ChangeNotifier {
   double get strokeWidth => _strokeWidth;
   PaperStyle get paperStyle => _paperStyle;
 
+  // Selected item ID
+  String? _selectedItemId;
+  String? get selectedItemId => _selectedItemId;
+
   // Viewport transformation
   Offset _panOffset = Offset.zero;
   double _zoomLevel = 1.0;
@@ -97,6 +101,164 @@ class CanvasController extends ChangeNotifier {
     _panOffset = Offset.zero;
     _zoomLevel = 1.0;
     notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // INTERACTIVE CARD ITEMS MANAGEMENT (PHASE 6)
+  // ---------------------------------------------------------------------------
+
+  void addStickyNote({Offset? position, Color? color, String? text}) {
+    _recordSnapshot();
+    final centerScene = position ?? (-_panOffset + const Offset(200, 200)) / _zoomLevel;
+    final note = StickyNoteItem(
+      id: 'note_${DateTime.now().microsecondsSinceEpoch}',
+      x: centerScene.dx,
+      y: centerScene.dy,
+      text: text ?? 'Key Concept...',
+      noteColor: color ?? const Color(0xFFFEF3C7),
+    );
+    _items.add(note);
+    _selectedItemId = note.id;
+    notifyListeners();
+  }
+
+  void addTextBox({Offset? position, String? text}) {
+    _recordSnapshot();
+    final centerScene = position ?? (-_panOffset + const Offset(200, 200)) / _zoomLevel;
+    final tb = TextBoxItem(
+      id: 'text_${DateTime.now().microsecondsSinceEpoch}',
+      x: centerScene.dx,
+      y: centerScene.dy,
+      text: text ?? 'Double tap to edit heading or note',
+    );
+    _items.add(tb);
+    _selectedItemId = tb.id;
+    notifyListeners();
+  }
+
+  void addTable({Offset? position, int rows = 3, int cols = 3}) {
+    _recordSnapshot();
+    final centerScene = position ?? (-_panOffset + const Offset(200, 200)) / _zoomLevel;
+    final table = TableItem(
+      id: 'table_${DateTime.now().microsecondsSinceEpoch}',
+      x: centerScene.dx,
+      y: centerScene.dy,
+      rows: rows,
+      cols: cols,
+      cells: {
+        '0,0': 'Variable',
+        '0,1': 'Unit',
+        '0,2': 'Value',
+      },
+    );
+    _items.add(table);
+    _selectedItemId = table.id;
+    notifyListeners();
+  }
+
+  void addVideoPlayer({required String videoPath, String? title, Offset? position}) {
+    _recordSnapshot();
+    final centerScene = position ?? (-_panOffset + const Offset(150, 150)) / _zoomLevel;
+    final vp = VideoFloatItem(
+      id: 'video_${DateTime.now().microsecondsSinceEpoch}',
+      x: centerScene.dx,
+      y: centerScene.dy,
+      videoPath: videoPath,
+      title: title ?? 'Lesson Presentation',
+    );
+    _items.add(vp);
+    _selectedItemId = vp.id;
+    notifyListeners();
+  }
+
+  void updateItemPosition(String id, Offset newPos) {
+    for (final it in _items) {
+      if (it.id == id) {
+        it.x = newPos.dx;
+        it.y = newPos.dy;
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
+  void updateItemSize(String id, double width, double height) {
+    for (final it in _items) {
+      if (it.id == id) {
+        if (it is StickyNoteItem) {
+          it.width = width.clamp(120, 800);
+          it.height = height.clamp(100, 800);
+        } else if (it is TextBoxItem) {
+          it.width = width.clamp(100, 900);
+          it.height = height.clamp(60, 900);
+        } else if (it is VideoFloatItem) {
+          it.width = width.clamp(320, 1280);
+          it.height = height.clamp(200, 720);
+        }
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
+  void updateStickyNoteText(String id, String newText) {
+    for (final it in _items) {
+      if (it.id == id && it is StickyNoteItem) {
+        it.text = newText;
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
+  void updateStickyNoteColor(String id, Color newColor) {
+    for (final it in _items) {
+      if (it.id == id && it is StickyNoteItem) {
+        it.noteColor = newColor;
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
+  void updateTextBox(String id, {String? text, double? fontSize, Color? color, bool? isBold}) {
+    for (final it in _items) {
+      if (it.id == id && it is TextBoxItem) {
+        if (text != null) it.text = text;
+        if (fontSize != null) it.fontSize = fontSize;
+        if (color != null) it.textColor = color;
+        if (isBold != null) it.isBold = isBold;
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
+  void updateTableCell(String id, int row, int col, String value) {
+    for (final it in _items) {
+      if (it.id == id && it is TableItem) {
+        it.cells['$row,$col'] = value;
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
+  void deleteItem(String id) {
+    _recordSnapshot();
+    _items.removeWhere((item) => item.id == id);
+    if (_selectedItemId == id) _selectedItemId = null;
+    notifyListeners();
+  }
+
+  void selectItem(String? id) {
+    if (_selectedItemId != id) {
+      _selectedItemId = id;
+      for (final it in _items) {
+        it.isSelected = (it.id == id);
+      }
+      notifyListeners();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -293,7 +455,7 @@ class CanvasController extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // UNDO / REDO HISTORY
+  // UNDO / REDO HISTORY & PERSISTENCE
   // ---------------------------------------------------------------------------
 
   void _recordSnapshot() {
@@ -324,6 +486,29 @@ class CanvasController extends ChangeNotifier {
     if (_items.isEmpty) return;
     _recordSnapshot();
     _items.clear();
+    notifyListeners();
+  }
+
+  void loadBoard(List<CanvasItem> newItems) {
+    _recordSnapshot();
+    _items.clear();
+    _items.addAll(newItems);
+    notifyListeners();
+  }
+
+  List<Map<String, dynamic>> exportBoardJson() {
+    return _items.map((it) => it.toJson()).toList();
+  }
+
+  void importBoardJson(List<dynamic> jsonList) {
+    _recordSnapshot();
+    _items.clear();
+    for (final itemJson in jsonList) {
+      if (itemJson is Map<String, dynamic>) {
+        final it = deserializeCanvasItem(itemJson);
+        if (it != null) _items.add(it);
+      }
+    }
     notifyListeners();
   }
 }

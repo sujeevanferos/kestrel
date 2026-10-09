@@ -78,6 +78,43 @@ class FloatingToolbar extends StatelessWidget {
 
               const _VerticalDivider(),
 
+              // Insert Floating Cards Menu (Sticky Notes, Text, Tables)
+              PopupMenuButton<String>(
+                tooltip: 'Insert Card / Object',
+                icon: const Icon(LucideIcons.plusSquare, size: 18, color: Color(0xFF4A4E57)),
+                color: const Color(0xFFF7F4EE),
+                elevation: 6,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: Color(0xFFE2DCD0)),
+                ),
+                onSelected: (val) {
+                  switch (val) {
+                    case 'sticky':
+                      controller.addStickyNote();
+                      break;
+                    case 'textbox':
+                      controller.addTextBox();
+                      break;
+                    case 'table':
+                      controller.addTable();
+                      break;
+                    case 'clear':
+                      controller.clearCanvas();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  _menuItem('sticky', LucideIcons.stickyNote, 'Sticky Note'),
+                  _menuItem('textbox', LucideIcons.type, 'Text Box'),
+                  _menuItem('table', LucideIcons.table, 'Dynamic Table'),
+                  const PopupMenuDivider(),
+                  _menuItem('clear', LucideIcons.trash2, 'Clear Whiteboard'),
+                ],
+              ),
+
+              const _VerticalDivider(),
+
               // Color Palette Picker
               ..._palette.map((c) => _ColorDot(
                     color: c,
@@ -107,6 +144,27 @@ class FloatingToolbar extends StatelessWidget {
                   _widthMenuItem(3.0, 'Medium (3.0px)'),
                   _widthMenuItem(6.0, 'Thick (6.0px)'),
                   _widthMenuItem(12.0, 'Marker (12.0px)'),
+                ],
+              ),
+
+              const _VerticalDivider(),
+
+              // Paper Style Selector
+              PopupMenuButton<PaperStyle>(
+                tooltip: 'Paper Style',
+                icon: const Icon(LucideIcons.grid, size: 18, color: Color(0xFF4A4E57)),
+                color: const Color(0xFFF7F4EE),
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: Color(0xFFE2DCD0)),
+                ),
+                onSelected: (style) => controller.setPaperStyle(style),
+                itemBuilder: (context) => [
+                  _paperMenuItem(PaperStyle.ivoryPlain, 'Warm Ivory Plain'),
+                  _paperMenuItem(PaperStyle.engineeringGrid, 'Engineering Grid'),
+                  _paperMenuItem(PaperStyle.dotGrid, 'Dot Matrix'),
+                  _paperMenuItem(PaperStyle.darkChalkboard, 'Dark Chalkboard'),
                 ],
               ),
 
@@ -153,6 +211,33 @@ class FloatingToolbar extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  PopupMenuItem<String> _menuItem(String val, IconData icon, String label) {
+    return PopupMenuItem<String>(
+      value: val,
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFF374151)),
+          const SizedBox(width: 12),
+          Text(label, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: Color(0xFF1F2937))),
+        ],
+      ),
+    );
+  }
+
+  PopupMenuItem<PaperStyle> _paperMenuItem(PaperStyle style, String label) {
+    return PopupMenuItem<PaperStyle>(
+      value: style,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 13,
+          fontWeight: controller.paperStyle == style ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
     );
   }
 

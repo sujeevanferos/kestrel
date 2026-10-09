@@ -87,7 +87,6 @@ class AIService {
         );
         return res.statusCode == 200;
       } else {
-        // xAI Grok (OpenAI-compatible)
         final url = Uri.parse('https://api.x.ai/v1/chat/completions');
         final res = await http.post(
           url,
@@ -119,10 +118,93 @@ class AIService {
     const systemPrompt = '''You are an expert STEM educator. Generate a clean, structured LaTeX presentation lesson for the topic requested.
 Output ONLY the LaTeX code inside a document environment, using standard article or beamer styling.''';
 
+    return _sendPrompt(systemPrompt: systemPrompt, userMessage: prompt);
+  }
+
+  /// Socratic Tutoring Dialog: Guides the student with conceptual hints rather than spoiling answers
+  Future<String> askSocraticTutor({
+    required String question,
+    List<Map<String, String>> history = const [],
+  }) async {
+    if (!hasValidKey) {
+      throw Exception('Please configure an API key for ${_provider.name.toUpperCase()} in Settings.');
+    }
+
+    const systemPrompt = '''You are Kestrel, an elite Socratic STEM Tutor for advanced mathematics, physics, and computer science.
+GUIDELINES:
+1. Do NOT immediately reveal the complete answer.
+2. Ask probing, thoughtful questions that guide the student to deduce the next step themselves.
+3. If the student is stuck, provide an intuitive analogy or a focused hint.
+4. Format mathematical expressions using standard LaTeX notation with dollar signs (e.g. \$E = mc^2\$).
+5. Maintain an encouraging, academic tone without using emojis.''';
+
+    return _sendPrompt(systemPrompt: systemPrompt, userMessage: question, history: history);
+  }
+
+  /// Solves mathematical problems with full step-by-step LaTeX derivations
+  Future<String> solveMathProblem({
+    required String problemOrFormula,
+  }) async {
+    if (!hasValidKey) {
+      throw Exception('Please configure an API key for ${_provider.name.toUpperCase()} in Settings.');
+    }
+
+    const systemPrompt = '''You are an expert mathematical and scientific solver engine.
+Provide a clear, rigorous, step-by-step derivation for the user's problem.
+Format all equations in LaTeX. Clearly mark:
+- Theorem/Formula Used
+- Step-by-Step Algebraic Simplification
+- Final Result boxed or emphasized.
+Do not use emojis.''';
+
+    return _sendPrompt(systemPrompt: systemPrompt, userMessage: problemOrFormula);
+  }
+
+  /// Analyzes student working, identifies errors, and suggests corrections
+  Future<String> verifyMathWork({
+    required String problem,
+    required String studentSteps,
+  }) async {
+    if (!hasValidKey) {
+      throw Exception('Please configure an API key for ${_provider.name.toUpperCase()} in Settings.');
+    }
+
+    const systemPrompt = '''You are an editorial STEM exam corrector.
+Review the student's step-by-step solution against the problem statement.
+Identify whether the result is correct. If there is a mistake:
+1. Pinpoint the exact step where the error occurred.
+2. Explain why it is mathematically invalid (e.g. sign error, invalid logarithm distribution).
+3. Provide the corrected continuation in LaTeX.
+Do not use emojis.''';
+
+    return _sendPrompt(
+      systemPrompt: systemPrompt,
+      userMessage: 'Problem: $problem\n\nStudent Working:\n$studentSteps',
+    );
+  }
+
+  Future<String> _sendPrompt({
+    required String systemPrompt,
+    required String userMessage,
+    List<Map<String, String>> history = const [],
+  }) async {
     if (_provider == AIProvider.gemini) {
       final url = Uri.parse(
         'https://generativelanguage.googleapis.com/v1beta/models/$_geminiModel:generateContent?key=$_geminiApiKey',
       );
+
+      final contents = <Map<String, dynamic>>[];
+      for (final h in history) {
+        contents.add({
+          'role': h['role'] == 'assistant' ? 'model' : 'user',
+          'parts': [{'text': h['content'] ?? ''}],
+        });
+      }
+      contents.add({
+        'role': 'user',
+        'parts': [{'text': userMessage}],
+      });
+
       final res = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -130,13 +212,10 @@ Output ONLY the LaTeX code inside a document environment, using standard article
           'system_instruction': {
             'parts': [{'text': systemPrompt}]
           },
-          'contents': [
-            {
-              'parts': [{'text': prompt}]
-            }
-          ]
+          'contents': contents,
         }),
       );
+
       if (res.statusCode != 200) {
         throw Exception('Gemini API Error: ${res.statusCode} - ${res.body}');
       }
@@ -144,6 +223,12 @@ Output ONLY the LaTeX code inside a document environment, using standard article
       return data['candidates'][0]['content']['parts'][0]['text'] ?? '';
     } else {
       final url = Uri.parse('https://api.x.ai/v1/chat/completions');
+      final messages = <Map<String, String>>[
+        {'role': 'system', 'content': systemPrompt},
+      ];
+      messages.addAll(history);
+      messages.add({'role': 'user', 'content': userMessage});
+
       final res = await http.post(
         url,
         headers: {
@@ -152,13 +237,11 @@ Output ONLY the LaTeX code inside a document environment, using standard article
         },
         body: jsonEncode({
           'model': _grokModel,
-          'messages': [
-            {'role': 'system', 'content': systemPrompt},
-            {'role': 'user', 'content': prompt}
-          ],
-          'temperature': 0.2,
+          'messages': messages,
+          'temperature': 0.3,
         }),
       );
+
       if (res.statusCode != 200) {
         throw Exception('Grok API Error: ${res.statusCode} - ${res.body}');
       }

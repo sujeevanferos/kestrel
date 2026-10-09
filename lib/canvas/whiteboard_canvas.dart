@@ -1,6 +1,11 @@
+import 'dart:ui' show PointMode;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../core/native_bindings.dart';
+import '../ui/canvas_cards/sticky_note_card.dart';
+import '../ui/canvas_cards/table_card.dart';
+import '../ui/canvas_cards/text_box_card.dart';
+import '../ui/canvas_cards/video_float_card.dart';
 import 'canvas_controller.dart';
 import 'models/canvas_item.dart';
 
@@ -17,6 +22,7 @@ class WhiteboardCanvas extends StatelessWidget {
         return Container(
           color: _getBackgroundColor(controller.paperStyle),
           child: Stack(
+            clipBehavior: Clip.none,
             children: [
               // Custom Grid / Paper Texture Layer
               Positioned.fill(
@@ -29,7 +35,7 @@ class WhiteboardCanvas extends StatelessWidget {
                 ),
               ),
 
-              // Interactive Stroke Input & Items Rendering Layer
+              // Interactive Stroke Input & Inking Canvas Layer
               Positioned.fill(
                 child: Listener(
                   behavior: HitTestBehavior.opaque,
@@ -56,7 +62,7 @@ class WhiteboardCanvas extends StatelessWidget {
                   },
                   child: CustomPaint(
                     painter: _WhiteboardPainter(
-                      items: controller.items,
+                      items: controller.items.where((it) => it is InkStrokeItem || it is SmartShapeCanvasItem).toList(),
                       activePoints: controller.activePoints,
                       currentTool: controller.currentTool,
                       currentColor: controller.currentColor,
@@ -67,6 +73,34 @@ class WhiteboardCanvas extends StatelessWidget {
                   ),
                 ),
               ),
+
+              // Floating Interactive Cards Layer (Sticky Notes, Text Boxes, Tables, Videos)
+              for (final item in controller.items) ...[
+                if (item is StickyNoteItem)
+                  Positioned(
+                    left: controller.panOffset.dx + (item.x * controller.zoomLevel),
+                    top: controller.panOffset.dy + (item.y * controller.zoomLevel),
+                    child: StickyNoteCard(item: item, controller: controller),
+                  )
+                else if (item is TextBoxItem)
+                  Positioned(
+                    left: controller.panOffset.dx + (item.x * controller.zoomLevel),
+                    top: controller.panOffset.dy + (item.y * controller.zoomLevel),
+                    child: TextBoxCard(item: item, controller: controller),
+                  )
+                else if (item is TableItem)
+                  Positioned(
+                    left: controller.panOffset.dx + (item.x * controller.zoomLevel),
+                    top: controller.panOffset.dy + (item.y * controller.zoomLevel),
+                    child: TableCard(item: item, controller: controller),
+                  )
+                else if (item is VideoFloatItem)
+                  Positioned(
+                    left: controller.panOffset.dx + (item.x * controller.zoomLevel),
+                    top: controller.panOffset.dy + (item.y * controller.zoomLevel),
+                    child: VideoFloatCard(item: item, controller: controller),
+                  ),
+              ],
             ],
           ),
         );
@@ -83,15 +117,15 @@ class WhiteboardCanvas extends StatelessWidget {
       case PaperStyle.ivoryPlain:
       case PaperStyle.engineeringGrid:
       case PaperStyle.dotGrid:
-        return const Color(0xFFFBF8F2); // Warm Ivory
+        return const Color(0xFFFBF8F2); // Warm Ivory Paper
       case PaperStyle.darkChalkboard:
-        return const Color(0xFF1E2421); // Dark Slate Chalkboard
+        return const Color(0xFF1E242B); // Classroom Slate Charcoal
     }
   }
 }
 
 // -----------------------------------------------------------------------------
-// PAPER BACKGROUND PAINTER (RULING / GRIDS)
+// PAPER BACKGROUND PAINTER (ENGINEERING GRID / DOT MATRIX / PLAIN)
 // -----------------------------------------------------------------------------
 
 class _PaperBackgroundPainter extends CustomPainter {
@@ -109,34 +143,41 @@ class _PaperBackgroundPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (style == PaperStyle.ivoryPlain) return;
 
-    final gridPaint = Paint()
-      ..color = (style == PaperStyle.darkChalkboard)
-          ? const Color(0x1FFFFFFF)
-          : const Color(0xFFE8E2D5)
+    final isDark = style == PaperStyle.darkChalkboard;
+    final gridColor = isDark
+        ? const Color(0xFF2C3440).withValues(alpha: 0.6)
+        : const Color(0xFFE2DDD2).withValues(alpha: 0.7);
+
+    final linePaint = Paint()
+      ..color = gridColor
       ..strokeWidth = 1.0;
 
     const baseSpacing = 32.0;
     final spacing = baseSpacing * zoomLevel;
 
-    if (spacing < 10.0) return; // Prevent excessive rendering when zoomed out
+    if (spacing < 8.0) return; // Skip sub-pixel dense grids
 
-    final startX = (panOffset.dx % spacing);
-    final startY = (panOffset.dy % spacing);
+    final startX = panOffset.dx % spacing;
+    final startY = panOffset.dy % spacing;
 
     if (style == PaperStyle.engineeringGrid || style == PaperStyle.darkChalkboard) {
-      // Vertical grid lines
+      // Draw grid lines
       for (var x = startX; x < size.width; x += spacing) {
-        canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+        canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
       }
-      // Horizontal grid lines
       for (var y = startY; y < size.height; y += spacing) {
-        canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
       }
     } else if (style == PaperStyle.dotGrid) {
-      // Dot matrix
+      // Draw subtle dot matrix
+      final dotPaint = Paint()
+        ..color = gridColor
+        ..strokeWidth = (1.5 * zoomLevel).clamp(1.0, 3.0)
+        ..strokeCap = StrokeCap.round;
+
       for (var x = startX; x < size.width; x += spacing) {
         for (var y = startY; y < size.height; y += spacing) {
-          canvas.drawCircle(Offset(x, y), 1.2 * zoomLevel.clamp(0.5, 2.0), gridPaint);
+          canvas.drawPoints(PointMode.points, [Offset(x, y)], dotPaint);
         }
       }
     }
@@ -144,9 +185,9 @@ class _PaperBackgroundPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PaperBackgroundPainter oldDelegate) {
-    return oldDelegate.style != style ||
-        oldDelegate.panOffset != panOffset ||
-        oldDelegate.zoomLevel != zoomLevel;
+    return oldDelegate.panOffset != panOffset ||
+        oldDelegate.zoomLevel != zoomLevel ||
+        oldDelegate.style != style;
   }
 }
 
@@ -179,7 +220,7 @@ class _WhiteboardPainter extends CustomPainter {
     canvas.translate(panOffset.dx, panOffset.dy);
     canvas.scale(zoomLevel, zoomLevel);
 
-    // Draw all committed canvas items
+    // Draw all committed canvas items (strokes and smart shapes)
     for (final item in items) {
       item.paint(canvas);
     }

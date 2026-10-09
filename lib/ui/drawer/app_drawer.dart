@@ -6,6 +6,9 @@ import '../settings/settings_dialog.dart';
 
 class AppDrawer extends StatelessWidget {
   final CanvasController controller;
+  final VoidCallback onOpenNotebooks;
+  final VoidCallback onOpenSocraticTutor;
+  final VoidCallback onOpenMathSolver;
   final VoidCallback onOpenGraphStudio;
   final VoidCallback onOpenLatexEditor;
   final VoidCallback onOpenKnowledgeGraph;
@@ -16,6 +19,9 @@ class AppDrawer extends StatelessWidget {
   const AppDrawer({
     super.key,
     required this.controller,
+    required this.onOpenNotebooks,
+    required this.onOpenSocraticTutor,
+    required this.onOpenMathSolver,
     required this.onOpenGraphStudio,
     required this.onOpenLatexEditor,
     required this.onOpenKnowledgeGraph,
@@ -85,11 +91,62 @@ class AppDrawer extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 children: [
-                  _sectionHeader('WORKSPACE MODULES'),
+                  _sectionHeader('CURRICULUM & NOTEBOOKS'),
+                  _drawerItem(
+                    icon: LucideIcons.bookOpen,
+                    title: 'Subjects & Notebooks',
+                    subtitle: 'Manage curriculum boards & pages',
+                    onTap: () {
+                      Navigator.pop(context);
+                      onOpenNotebooks();
+                    },
+                  ),
+                  _drawerItem(
+                    icon: LucideIcons.gitFork,
+                    title: 'Knowledge Graph',
+                    subtitle: 'Obsidian-style concept network',
+                    onTap: () {
+                      Navigator.pop(context);
+                      onOpenKnowledgeGraph();
+                    },
+                  ),
+
+                  const SizedBox(height: 10),
+                  _sectionHeader('AI TUTORING & STEM ENGINES'),
+                  _drawerItem(
+                    icon: LucideIcons.sparkles,
+                    title: 'Socratic AI Tutor',
+                    subtitle: 'Guided hints without spoiling answers',
+                    onTap: () {
+                      Navigator.pop(context);
+                      onOpenSocraticTutor();
+                    },
+                  ),
+                  _drawerItem(
+                    icon: LucideIcons.binary,
+                    title: 'Math Solver & Corrector',
+                    subtitle: 'Step-by-step calculus & error check',
+                    onTap: () {
+                      Navigator.pop(context);
+                      onOpenMathSolver();
+                    },
+                  ),
+                  _drawerItem(
+                    icon: LucideIcons.video,
+                    title: 'LaTeX Video Generator',
+                    subtitle: 'On-device pedagogical MP4 renderer',
+                    onTap: () {
+                      Navigator.pop(context);
+                      onOpenVideoGenerator();
+                    },
+                  ),
+
+                  const SizedBox(height: 10),
+                  _sectionHeader('STUDIOS & TOOLS'),
                   _drawerItem(
                     icon: LucideIcons.lineChart,
-                    title: 'Graph Studio (2D/3D Plotter)',
-                    subtitle: 'Desmos-style formulas & parameter sliders',
+                    title: 'Graph Studio (2D/3D)',
+                    subtitle: 'Desmos-style formulas & sliders',
                     onTap: () {
                       Navigator.pop(context);
                       onOpenGraphStudio();
@@ -98,37 +155,16 @@ class AppDrawer extends StatelessWidget {
                   _drawerItem(
                     icon: LucideIcons.fileCode,
                     title: 'LaTeX Document Typesetting',
-                    subtitle: 'Live Tectonic preview & templates',
+                    subtitle: 'Split-view live article editor',
                     onTap: () {
                       Navigator.pop(context);
                       onOpenLatexEditor();
                     },
                   ),
                   _drawerItem(
-                    icon: LucideIcons.gitFork,
-                    title: 'Knowledge Graph',
-                    subtitle: 'Obsidian-style interconnected concepts',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onOpenKnowledgeGraph();
-                    },
-                  ),
-                  _drawerItem(
-                    icon: LucideIcons.video,
-                    title: 'Pedagogical Video Generator',
-                    subtitle: 'LaTeX timeline & on-device MP4 rendering',
-                    onTap: () {
-                      Navigator.pop(context);
-                      onOpenVideoGenerator();
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-                  _sectionHeader('INTERACTIVE TOOLS & SIMULATIONS'),
-                  _drawerItem(
                     icon: LucideIcons.cpu,
                     title: 'STEM Utilities & Physics',
-                    subtitle: 'Planetary orbits, pendulum, calculator, clock',
+                    subtitle: 'Orbits, pendulum, calculator, clock',
                     onTap: () {
                       Navigator.pop(context);
                       onOpenSimulations();
@@ -137,14 +173,14 @@ class AppDrawer extends StatelessWidget {
                   _drawerItem(
                     icon: LucideIcons.users,
                     title: 'LAN Live Collaboration',
-                    subtitle: 'Multi-peer whiteboard sync via room code',
+                    subtitle: 'P2P whiteboard sync via room code',
                     onTap: () {
                       Navigator.pop(context);
                       onOpenCollab();
                     },
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _sectionHeader('CANVAS PAPER STYLE'),
                   _paperStyleSelector(),
                 ],
@@ -191,15 +227,15 @@ class AppDrawer extends StatelessWidget {
 
   Widget _sectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
       child: Text(
         title,
         style: const TextStyle(
           fontFamily: 'Inter',
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          letterSpacing: 1.0,
-          color: Color(0xFF8C867A),
+          letterSpacing: 0.8,
+          color: Color(0xFF9CA3AF),
         ),
       ),
     );
@@ -243,34 +279,32 @@ class AppDrawer extends StatelessWidget {
   Widget _paperStyleSelector() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: SegmentedButton<PaperStyle>(
-        segments: const [
-          ButtonSegment(
-            value: PaperStyle.ivoryPlain,
-            label: Text('Plain', style: TextStyle(fontSize: 11)),
-          ),
-          ButtonSegment(
-            value: PaperStyle.engineeringGrid,
-            label: Text('Grid', style: TextStyle(fontSize: 11)),
-          ),
-          ButtonSegment(
-            value: PaperStyle.dotGrid,
-            label: Text('Dots', style: TextStyle(fontSize: 11)),
-          ),
-          ButtonSegment(
-            value: PaperStyle.darkChalkboard,
-            label: Text('Chalk', style: TextStyle(fontSize: 11)),
-          ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: [
+          _paperChip('Ivory Plain', PaperStyle.ivoryPlain),
+          _paperChip('Engineering Grid', PaperStyle.engineeringGrid),
+          _paperChip('Dot Grid', PaperStyle.dotGrid),
+          _paperChip('Dark Chalk', PaperStyle.darkChalkboard),
         ],
-        selected: {controller.paperStyle},
-        style: ButtonStyle(
-          visualDensity: VisualDensity.compact,
-          side: WidgetStateProperty.all(const BorderSide(color: Color(0xFFE2DCD0))),
-        ),
-        onSelectionChanged: (set) {
-          if (set.isNotEmpty) controller.setPaperStyle(set.first);
-        },
       ),
+    );
+  }
+
+  Widget _paperChip(String label, PaperStyle style) {
+    final isSelected = controller.paperStyle == style;
+    return ChoiceChip(
+      label: Text(label, style: const TextStyle(fontFamily: 'Inter', fontSize: 11)),
+      selected: isSelected,
+      selectedColor: const Color(0xFF1B1C1E),
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : const Color(0xFF4A4E57),
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+      ),
+      backgroundColor: Colors.white,
+      side: const BorderSide(color: Color(0xFFE2DCD0)),
+      onSelected: (_) => controller.setPaperStyle(style),
     );
   }
 }

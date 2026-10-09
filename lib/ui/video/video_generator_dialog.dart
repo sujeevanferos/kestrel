@@ -4,7 +4,9 @@ import '../../services/ai_service.dart';
 import '../../video/video_pipeline_service.dart';
 
 class VideoGeneratorDialog extends StatefulWidget {
-  const VideoGeneratorDialog({super.key});
+  final void Function(String videoPath, String title)? onMountToWhiteboard;
+
+  const VideoGeneratorDialog({super.key, this.onMountToWhiteboard});
 
   @override
   State<VideoGeneratorDialog> createState() => _VideoGeneratorDialogState();
@@ -230,6 +232,23 @@ class _VideoGeneratorDialogState extends State<VideoGeneratorDialog> {
                   child: const Text('Close', style: TextStyle(fontFamily: 'Inter', color: Color(0xFF6B7280))),
                 ),
                 const SizedBox(width: 12),
+                if (_generatedVideoPath != null && widget.onMountToWhiteboard != null) ...[
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      widget.onMountToWhiteboard!(_generatedVideoPath!, _promptCtrl.text.trim());
+                      Navigator.of(context).pop();
+                    },
+                    icon: const Icon(LucideIcons.layoutGrid, size: 16),
+                    label: const Text('Mount to Whiteboard', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2D6A4F),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 ElevatedButton.icon(
                   onPressed: _isGenerating ? null : _startGeneration,
                   icon: _isGenerating
