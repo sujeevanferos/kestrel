@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class NativeVideoEncoder {
@@ -14,8 +14,8 @@ class NativeVideoEncoder {
     int fps = 30,
     int bitrate = 4000000,
   }) async {
-    if (!Platform.isAndroid) {
-      // Desktop / fallback simulation for testing
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      // Fallback simulation for non-Android targets
       return outputPath;
     }
 

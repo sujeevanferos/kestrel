@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class NativePdfRenderer {
@@ -10,8 +10,7 @@ class NativePdfRenderer {
     int width = 1920,
     int height = 1080,
   }) async {
-    if (!Platform.isAndroid) {
-      // Desktop / fallback simulation for testing
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       return [];
     }
 
@@ -32,7 +31,7 @@ class NativePdfRenderer {
 
   /// Gets the total page count of a PDF file
   static Future<int> getPageCount(String pdfPath) async {
-    if (!Platform.isAndroid) return 0;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return 0;
     try {
       final int? count = await _channel.invokeMethod<int>(
         'getPageCount',
