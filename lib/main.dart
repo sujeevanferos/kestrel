@@ -4,7 +4,11 @@ import 'canvas/canvas_controller.dart';
 import 'canvas/whiteboard_canvas.dart';
 import 'services/ai_service.dart';
 import 'ui/drawer/app_drawer.dart';
+import 'ui/graph_studio/graph_studio_view.dart';
+import 'ui/latex/latex_editor_view.dart';
 import 'ui/toolbar/floating_toolbar.dart';
+import 'ui/video/video_generator_dialog.dart';
+import 'ui/widgets/stem_utilities_dialog.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,11 +87,35 @@ class _WhiteboardScreenState extends State<WhiteboardScreen> {
       key: _scaffoldKey,
       drawer: AppDrawer(
         controller: _controller,
-        onOpenGraphStudio: () => _showNotice('Graph Studio (Desmos 2D/3D)'),
-        onOpenLatexEditor: () => _showNotice('LaTeX Document Typesetting'),
+        onOpenGraphStudio: () {
+          showDialog(
+            context: context,
+            builder: (_) => GraphStudioView(
+              onEmbedToCanvas: (formula) {
+                _showNotice('Embedded formula: y = $formula');
+              },
+            ),
+          );
+        },
+        onOpenLatexEditor: () {
+          showDialog(
+            context: context,
+            builder: (_) => const LatexEditorView(),
+          );
+        },
         onOpenKnowledgeGraph: () => _showNotice('Knowledge Graph (Obsidian-style)'),
-        onOpenSimulations: () => _showNotice('STEM Simulations & Arcade'),
-        onOpenVideoGenerator: () => _showNotice('LaTeX Pedagogical Video Generator'),
+        onOpenSimulations: () {
+          showDialog(
+            context: context,
+            builder: (_) => const StemUtilitiesDialog(),
+          );
+        },
+        onOpenVideoGenerator: () {
+          showDialog(
+            context: context,
+            builder: (_) => const VideoGeneratorDialog(),
+          );
+        },
         onOpenCollab: () => _showNotice('LAN Live Whiteboard Collaboration'),
       ),
       body: Stack(

@@ -37,6 +37,12 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    externalNativeBuild {
+        cmake {
+            path = file("../../native_core/CMakeLists.txt")
+        }
+    }
 }
 
 flutter {
